@@ -40,8 +40,7 @@ War3::~War3() {
 		FreeLibrary(m_gameBase.module);
 	}
 
-	UnhookWindowsHookEx(m_windowHook);
-	UnhookWindowsHookEx(m_keyboardHook);
+	SetWindowLong(m_gameWindow, GWL_WNDPROC, (LONG)m_wndProc);
 	ClipCursor(nullptr);
 }
 
@@ -55,19 +54,15 @@ void War3::launch(bool clipMouse) {
 	GameMain(m_gameBase.module);
 }
 
-HWND War3::m_gameWindow = nullptr;
-HHOOK War3::m_windowHook = nullptr;
-HHOOK War3::m_keyboardHook = nullptr;
 HWND CALLBACK War3::CreateWindowExA(DWORD dwExStyle, LPCSTR lpClassName, LPCSTR lpWindowName, DWORD dwStyle, int X, int Y, int nWidth, int nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam) {
-	m_gameWindow = HookManager::Invoke(War3::CreateWindowExA, dwExStyle, lpClassName, WAR3_NAME, dwStyle, X, Y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam);
-	
-	m_windowHook = SetWindowsHook(WH_CALLWNDPROC, CallWndProc);
-	m_keyboardHook = SetWindowsHook(WH_KEYBOARD, CallKeyboardProc);
-
-	return m_gameWindow;
+	return HookManager::Invoke(War3::CreateWindowExA, dwExStyle, lpClassName, WAR3_NAME, dwStyle, X, Y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam);
 }
 
+HWND War3::m_gameWindow = nullptr;
+WNDPROC War3::m_wndProc = nullptr;
 BOOL CALLBACK War3::SetWindowTextA(HWND hWnd, LPCSTR lpString) {
+	m_wndProc = (WNDPROC)SetWindowLong(m_gameWindow = hWnd, GWL_WNDPROC, (LONG)War3::WndProc);
+
 	return HookManager::Invoke(War3::SetWindowTextA, hWnd, WAR3_NAME);
 }
 
@@ -178,89 +173,72 @@ void War3::bindCursorAsync() {
 		}).detach();
 }
 
-LRESULT WINAPI War3::CallWndProc(int nCode, WPARAM wParam, LPARAM lParam) {
+HRESULT CALLBACK War3::WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
 	static bool hookOn = false, sysCmdOn = false;
 
-	if (nCode >= HC_ACTION) {
-		CWPSTRUCT* msg = (CWPSTRUCT*)lParam;
+	switch (message)
+	{
+	case WM_KEYDOWN:
+		if (wParam == VK_F7) {
+			m_clipMouse = !m_clipMouse;
 
-		switch (msg->message)
-		{
-		case WM_SYSCOMMAND:
-			if (wParam == SC_MAXIMIZE) {
-				hookOn = false;
-				sysCmdOn = false;
-			}
-			else {
-				sysCmdOn = true;
-			}
-
-			break;
-
-		case WM_CAPTURECHANGED:
-			if (!sysCmdOn && !hookOn) {
-				hookOn = true;
+			if (m_clipMouse) {
 				bindCursorAsync();
 			}
 			else {
-				sysCmdOn = false;
+				ClipCursor(nullptr);
 			}
+		}
 
-			break;
+		break;
 
-		case WM_SIZE:
-			hookOn = true;
-			sysCmdOn = false;
-			bindCursorAsync();
-
-			break;
-
-		case WM_EXITSIZEMOVE:
-			hookOn = true;
-			sysCmdOn = false;
-			bindCursorAsync();
-
-			break;
-
-		case WM_SETFOCUS:
-			bindCursorAsync();
-
-			break;
-
-		case WM_KILLFOCUS:
+	case WM_SYSCOMMAND:
+		if (wParam == SC_MAXIMIZE) {
 			hookOn = false;
-			ClipCursor(nullptr);
-
-			break;
-		default:
-			break;
+			sysCmdOn = false;
 		}
+		else {
+			sysCmdOn = true;
+		}
+
+		break;
+
+	case WM_CAPTURECHANGED:
+		if (!sysCmdOn && !hookOn) {
+			hookOn = true;
+			bindCursorAsync();
+		}
+		else {
+			sysCmdOn = false;
+		}
+
+		break;
+
+	case WM_SIZE:
+		hookOn = true;
+		sysCmdOn = false;
+		bindCursorAsync();
+
+		break;
+
+	case WM_EXITSIZEMOVE:
+		hookOn = true;
+		sysCmdOn = false;
+		bindCursorAsync();
+
+		break;
+
+	case WM_SETFOCUS:
+		bindCursorAsync();
+
+		break;
+
+	case WM_KILLFOCUS:
+		hookOn = false;
+		ClipCursor(nullptr);
+
+		break;
 	}
 
-	return CallNextHookEx(m_windowHook, nCode, wParam, lParam);
-}
-
-LRESULT WINAPI War3::CallKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
-	static bool clicked = false;
-
-	if (nCode >= HC_ACTION) {
-		WORD keyFlags = HIWORD(lParam);
-
-		if (wParam == VK_F7 && !(keyFlags & KF_UP)) {
-			clicked = !clicked;
-
-			if (clicked) {
-				m_clipMouse = !m_clipMouse;
-
-				if (m_clipMouse) {
-					bindCursorAsync();
-				}
-				else {
-					ClipCursor(nullptr);
-				}
-			}
-		}
-	}
-
-	return CallNextHookEx(m_keyboardHook, nCode, wParam, lParam);
+	return CallWindowProc(m_wndProc, window, message, wParam, lParam);
 }

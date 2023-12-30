@@ -16,18 +16,19 @@ private:
 	static HWND CALLBACK CreateWindowExA(DWORD dwExStyle, LPCSTR lpClassName, LPCSTR lpWindowName, DWORD dwStyle, int X, int Y, int nWidth, int nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam);
 	static BOOL CALLBACK SetWindowTextA(HWND hWnd, LPCSTR lpString);
 
-	static HCURSOR WINAPI LoadCursorA(HINSTANCE hInstance, LPCSTR lpCursorName);
-	static HANDLE WINAPI LoadImageA(HINSTANCE hInst, LPCSTR name, UINT type, int cx, int cy, UINT fuLoad);
+	static HCURSOR CALLBACK LoadCursorA(HINSTANCE hInstance, LPCSTR lpCursorName);
+	static HANDLE CALLBACK LoadImageA(HINSTANCE hInst, LPCSTR name, UINT type, int cx, int cy, UINT fuLoad);
 
-	static HANDLE WINAPI CreateEventA(LPSECURITY_ATTRIBUTES lpEventAttributes, BOOL bManualReset, BOOL bInitialState, LPCSTR lpName);
+	static HANDLE CALLBACK CreateEventA(LPSECURITY_ATTRIBUTES lpEventAttributes, BOOL bManualReset, BOOL bInitialState, LPCSTR lpName);
 
-	static BOOL WINAPI bind(SOCKET s, sockaddr_in* name, int namelen);
-	static BOOL WINAPI sendto(SOCKET s, LPCSTR buf, int len, int flags, sockaddr_in* to, int tolen);
+	static BOOL CALLBACK bind(SOCKET s, sockaddr_in* name, int namelen);
+	static BOOL CALLBACK sendto(SOCKET s, LPCSTR buf, int len, int flags, sockaddr_in* to, int tolen);
 
-	static DWORD WINAPI StormGetFileSize(HANDLE hFile, LPDWORD lpFileSizeHigh);
+	static DWORD CALLBACK StormGetFileSize(HANDLE hFile, LPDWORD lpFileSizeHigh);
 
-	static LRESULT WINAPI CallWndProc(int nCode, WPARAM wParam, LPARAM lParam);
-	static LRESULT WINAPI CallKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
+	static HRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam);
+	static LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam);
+	static LRESULT CALLBACK CallKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
 
 	static void bindCursorAsync();
 
@@ -35,6 +36,6 @@ private:
 
 	MODULE m_gameBase;
 	static HWND m_gameWindow;
-	static HHOOK m_windowHook, m_keyboardHook;
+	static WNDPROC m_wndProc;
 	static bool m_clipMouse;
 };
